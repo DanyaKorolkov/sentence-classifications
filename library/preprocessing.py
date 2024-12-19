@@ -1,9 +1,12 @@
 import contractions
-import unicodedata
-import inflect
+import re
 from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
-import re
+from pymorphy2 import MorphAnalyzer
+from nltk.corpus import stopwords
+
+RU_STOPWORDS = stopwords.words("russian")
+EN_STOPWORDS = stopwords.words("english")
 
 def preprocess_text(text: str) -> str:
     """
@@ -15,41 +18,46 @@ def preprocess_text(text: str) -> str:
     # Приводим текст к нижнему регистру
     text = text.lower()
 
-    # Разворачиваем сокращения: текст часто содержит конструкции вроде "don't" или "won't", поэтому развернём подобные сокращения
+    # Разворачиваем сокращения: текст часто содержит конструкции на англ. языке, вроде "don't" или "won't"
     text = contractions.fix(text)
 
-    # Преобразование символов с диакритическими знаками к ASCII-символам: используем функцию normalize из модуля unicodedata и преобразуем символы с диакритическими знаками к ASCII-символам
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
-
+    # Разделяем "слипшиеся" с пунктуацией слова
+    text = re.sub(r'\s*[.,;:!?…-]+\s*', ' ', text)
+    
     # Удаляем пунктуацию, не разделяя слова и знаки препинания
-    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'[^a-zA-Zа-яА-ЯёЁ0-9\s]', '', text)
 
-    # Записываем числа прописью: 4 превращается в "four"
-    temp = inflect.engine()
-    words = []
-    for word in text.split():
-        if word.isdigit():
-            words.append(temp.number_to_words(word))
-        else:
-            words.append(word)
-    text = ' '.join(words)
+    # Удаляем лишние пробелы
+    text = re.sub(r'\s+', ' ', text).strip()
 
-    # Токенизируем текст для более точного разделения на слова
-    text = word_tokenize(text, language='english')
+    # Удаляем стоп-слова
+    text = ' '.join([word for word in text.split() if word not in RU_STOPWORDS or word not in EN_STOPWORDS])
+    
+    # Заменяем дефисы на пробелы 
+    text = re.sub(r'(\w+)-(\w+)', r'\1 \2', text)
 
-    # Фильтрация слов, состоящих только из подчеркиваний
-    words = [word for word in text if not re.match(r'^_+$', word)]
+    # Создаем экземпляр морфологического анализатора
+    morph = MorphAnalyzer()
 
     # Создание стеммера
     stemmer = SnowballStemmer("english", ignore_stopwords=True)
+
+    # Токенизируем текст для более точного разделения на слова
+    words = word_tokenize(text, language='russian')
 
     # Инициализация списка для нормализованных слов
     processed_words = []
 
     for word in words:
-        # Выделим основу слова
-        word = stemmer.stem(word)
-        processed_words.append(word)
-
+        # Определяем язык слова
+        if bool(re.fullmatch(r'[a-zA-Z]+', word)):
+            # Выделим основу слова
+            parsed_word = stemmer.stem(word)
+            processed_words.append(parsed_word)             
+        else:
+            # Применяем лемматизацию
+            parsed_word = morph.parse(word)[0]
+            processed_words.append(parsed_word.normal_form)
+        
     # Соединяем обработанные слова в строку
     return ' '.join(processed_words)
