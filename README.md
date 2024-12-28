@@ -20,7 +20,7 @@ sentence-classifications/
 └── starter/  
 │ ├── 01_data_collection.ipynb # Jupyter-ноутбук для сбора данных  
 │ ├── 02_model_development.ipynb # Jupyter-ноутбук для разработки модели  
-│ ├── 03_multilabel_model_development.ipynb # Jupyter-ноутбук для разработки мультилэйбл модели
+│ ├── 03_multilabel_model_development.ipynb # Jupyter-ноутбук для разработки мультилэйбл модели  
 │ └── artefacts/ # Папка для хранения артефактов модели  
 ├── README.md # Этот файл  
 └── requirements.txt # Список зависимостей проекта
